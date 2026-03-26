@@ -15,7 +15,7 @@ export default function DepositForm({ isConnected, isSubmitting, onDeposit }: De
       <div className="mt-1 text-xs text-slate-400">Deposit tokens into the Axionvera vault.</div>
 
       <div className="mt-5 flex flex-col gap-3">
-        <label className="text-xs font-medium text-slate-300" htmlFor="deposit-amount">
+        <label className="text-xs text-slate-300" htmlFor="deposit-amount">
           Amount
         </label>
         <input
@@ -33,6 +33,7 @@ export default function DepositForm({ isConnected, isSubmitting, onDeposit }: De
             setAmount("");
           }}
           disabled={!isConnected || isSubmitting}
+          aria-label={isSubmitting ? "Submitting deposit" : "Deposit tokens"}
           className="rounded-xl bg-axion-500 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-axion-500/20 transition hover:bg-axion-400 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isSubmitting ? "Submitting..." : "Deposit"}

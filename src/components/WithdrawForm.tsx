@@ -15,7 +15,7 @@ export default function WithdrawForm({ isConnected, isSubmitting, onWithdraw }: 
       <div className="mt-1 text-xs text-slate-400">Withdraw tokens from the Axionvera vault.</div>
 
       <div className="mt-5 flex flex-col gap-3">
-        <label className="text-xs font-medium text-slate-300" htmlFor="withdraw-amount">
+        <label className="text-xs text-slate-300" htmlFor="withdraw-amount">
           Amount
         </label>
         <input
@@ -33,6 +33,7 @@ export default function WithdrawForm({ isConnected, isSubmitting, onWithdraw }: 
             setAmount("");
           }}
           disabled={!isConnected || isSubmitting}
+          aria-label={isSubmitting ? "Submitting withdrawal" : "Withdraw tokens"}
           className="rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/60 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? "Submitting..." : "Withdraw"}
