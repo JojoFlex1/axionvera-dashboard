@@ -74,8 +74,37 @@ Common issues and their resolutions:
 
 ## 🤝 Contributing
 
-We welcome professional contributions! Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) for branch naming conventions (`feat/`, `fix/`, `docs/`) and technical standards.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Infrastructure as Code (Terraform)
+
+This project includes Terraform configurations for provisioning AWS infrastructure. See [terraform/README.md](terraform/README.md) for detailed instructions.
+
+### Quick Terraform Commands
+
+```bash
+# Navigate to terraform directory
+cd terraform
+
+# Initialize Terraform
+terraform init
+
+# Plan the deployment
+terraform plan
+
+# Apply the configuration
+terraform apply
+
+# Destroy resources when done
+terraform destroy
+```
+
+### Prerequisites for Terraform
+
+- Terraform 1.0+
+- AWS CLI configured with credentials
+- SSH key pair in AWS EC2 console
 
 ## 📜 License
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for the full text and legal clearances as part of the Axionvera Network open-source contributions.
+MIT — see [LICENSE](LICENSE).
