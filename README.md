@@ -88,8 +88,37 @@ By default, this repo ships with a mock implementation that persists balances an
 
 ## Contributing
 
-See [CONTRIBUTING.md](file:///Users/boufdaddy/Documents/trae_projects/axionvera-dashboard/CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Infrastructure as Code (Terraform)
+
+This project includes Terraform configurations for provisioning AWS infrastructure. See [terraform/README.md](terraform/README.md) for detailed instructions.
+
+### Quick Terraform Commands
+
+```bash
+# Navigate to terraform directory
+cd terraform
+
+# Initialize Terraform
+terraform init
+
+# Plan the deployment
+terraform plan
+
+# Apply the configuration
+terraform apply
+
+# Destroy resources when done
+terraform destroy
+```
+
+### Prerequisites for Terraform
+
+- Terraform 1.0+
+- AWS CLI configured with credentials
+- SSH key pair in AWS EC2 console
 
 ## License
 
-MIT — see [LICENSE](file:///Users/boufdaddy/Documents/trae_projects/axionvera-dashboard/LICENSE).
+MIT — see [LICENSE](LICENSE).
