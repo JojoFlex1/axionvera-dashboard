@@ -98,7 +98,7 @@ export default function ProfileForm({ initialData, onSubmit }: ProfileFormProps)
               <p className="text-xs text-slate-500">Optional: Brief description about yourself</p>
             )}
             <p className="text-xs text-slate-500">
-              {bioProps.value.length}/500
+              {(bioProps.value || '').length}/500
             </p>
           </div>
         </div>
