@@ -1,5 +1,7 @@
+import { useMemo, useState } from "react";
 import { formatAmount, shortenAddress } from "@/utils/contractHelpers";
-import type { VaultTx } from "@/utils/contractHelpers";
+import type { VaultTx, VaultTxType, VaultTxStatus } from "@/utils/contractHelpers";
+import { TransactionSkeleton } from "./Skeletons";
 
 type TransactionHistoryProps = {
   isConnected: boolean;
@@ -10,10 +12,27 @@ type TransactionHistoryProps = {
   isClaiming: boolean;
 };
 
+type TypeFilter = "all" | VaultTxType;
+type StatusFilter = "all" | VaultTxStatus;
+
+const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
+  { value: "all", label: "All Types" },
+  { value: "deposit", label: "Deposit" },
+  { value: "withdraw", label: "Withdraw" },
+  { value: "claim", label: "Claim" }
+];
+
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All Statuses" },
+  { value: "success", label: "Success" },
+  { value: "pending", label: "Pending" },
+  { value: "failed", label: "Failed" }
+];
+
 function statusStyles(status: VaultTx["status"]) {
-  if (status === "success") return "border-emerald-200/50 dark:border-emerald-900/50 bg-emerald-50/30 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-200";
-  if (status === "failed") return "border-rose-200/50 dark:border-rose-900/50 bg-rose-50/30 dark:bg-rose-950/30 text-rose-700 dark:text-rose-200";
-  return "border-slate-200 dark:border-slate-800 bg-slate-100/30 dark:bg-slate-900/30 text-slate-700 dark:text-slate-200";
+  if (status === "success") return "border-emerald-900/50 bg-emerald-950/30 text-emerald-200";
+  if (status === "failed") return "border-rose-900/50 bg-rose-950/30 text-rose-200";
+  return "border-border-primary bg-background-secondary/30 text-text-primary";
 }
 
 function typeLabel(type: VaultTx["type"]) {
@@ -21,6 +40,9 @@ function typeLabel(type: VaultTx["type"]) {
   if (type === "withdraw") return "Withdraw";
   return "Claim";
 }
+
+const selectClassName =
+  "rounded-lg border border-border-primary bg-background-secondary/30 px-3 py-1.5 text-xs text-text-primary outline-none transition hover:bg-background-secondary/60 focus:border-axion-500";
 
 export default function TransactionHistory({
   isConnected,
@@ -30,12 +52,25 @@ export default function TransactionHistory({
   onClaimRewards,
   isClaiming
 }: TransactionHistoryProps) {
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((tx) => {
+      if (typeFilter !== "all" && tx.type !== typeFilter) return false;
+      if (statusFilter !== "all" && tx.status !== statusFilter) return false;
+      return true;
+    });
+  }, [transactions, typeFilter, statusFilter]);
+
+  const hasActiveFilter = typeFilter !== "all" || statusFilter !== "all";
+
   return (
-    <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-950/30 p-6 shadow-sm dark:shadow-none transition-colors duration-300">
+    <section className="rounded-2xl border border-border-primary bg-background-primary/30 p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-sm font-semibold text-slate-900 dark:text-white">Transaction history</div>
-          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <div className="text-sm font-semibold text-text-primary">Transaction history</div>
+          <div className="mt-1 text-xs text-text-muted">
             {isConnected && address ? `Recent vault activity for ${shortenAddress(address, 6)}` : "Connect a wallet to view history."}
           </div>
         </div>
@@ -44,39 +79,84 @@ export default function TransactionHistory({
           onClick={onClaimRewards}
           disabled={!isConnected || isClaiming}
           aria-label={isClaiming ? "Claiming rewards" : "Claim your earned rewards"}
-          className="rounded-xl bg-slate-100 dark:bg-white/10 px-4 py-2 text-sm font-medium text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isClaiming ? "Claiming..." : "Claim Rewards"}
         </button>
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-        <div className="grid grid-cols-[1.2fr_1fr_1fr_0.9fr] gap-3 bg-slate-50/50 dark:bg-slate-900/20 px-4 py-3 text-xs text-slate-500 dark:text-slate-300">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-xs text-text-muted">
+          Type
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+            className={selectClassName}
+          >
+            {TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-text-muted">
+          Status
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            className={selectClassName}
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {hasActiveFilter ? (
+          <button
+            type="button"
+            onClick={() => {
+              setTypeFilter("all");
+              setStatusFilter("all");
+            }}
+            className="text-xs text-axion-400 transition hover:text-axion-300"
+          >
+            Clear filters
+          </button>
+        ) : null}
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-2xl border border-border-primary">
+        <div className="grid grid-cols-[1.2fr_1fr_1fr_0.9fr] gap-3 bg-background-secondary/20 px-4 py-3 text-xs text-text-secondary">
           <div>Type</div>
           <div>Amount</div>
           <div>Created</div>
           <div>Status</div>
         </div>
-        <div className="divide-y divide-slate-200 dark:divide-slate-800">
+        <div className="divide-y divide-border-primary">
           {isLoading ? (
-            <div className="px-4 py-6 text-sm text-slate-500 dark:text-slate-300">Loading transactions...</div>
-          ) : transactions.length === 0 ? (
-            <div className="px-4 py-6 text-sm text-slate-500 dark:text-slate-300">No transactions yet.</div>
+            <TransactionSkeleton />
+          ) : filteredTransactions.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-text-secondary">
+              {hasActiveFilter ? "No transactions match the selected filters." : "No transactions yet."}
+            </div>
           ) : (
-            transactions.map((tx) => (
+            filteredTransactions.map((tx) => (
               <div
                 key={tx.id}
                 className="grid grid-cols-[1.2fr_1fr_1fr_0.9fr] items-center gap-3 px-4 py-3 text-sm"
               >
-                <div className="text-slate-900 dark:text-white font-medium">{typeLabel(tx.type)}</div>
-                <div className="text-slate-700 dark:text-slate-200">{formatAmount(tx.amount)}</div>
-                <div className="text-slate-500 dark:text-slate-400 font-mono text-xs">{new Date(tx.createdAt).toLocaleString()}</div>
+                <div className="text-text-primary">{typeLabel(tx.type)}</div>
+                <div className="text-text-primary">{formatAmount(tx.amount)}</div>
+                <div className="text-text-muted">{new Date(tx.createdAt).toLocaleString()}</div>
                 <div>
                   <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${statusStyles(tx.status)}`}>
                     {tx.status}
                   </span>
                   {tx.hash ? (
-                    <div className="mt-1 text-[10px] text-slate-400 dark:text-slate-500 font-mono">Hash: {shortenAddress(tx.hash, 8)}</div>
+                    <div className="mt-1 text-xs text-text-muted">Hash: {shortenAddress(tx.hash, 8)}</div>
                   ) : null}
                 </div>
               </div>
@@ -84,6 +164,12 @@ export default function TransactionHistory({
           )}
         </div>
       </div>
+
+      {hasActiveFilter && !isLoading && filteredTransactions.length > 0 ? (
+        <div className="mt-3 text-xs text-text-muted">
+          Showing {filteredTransactions.length} of {transactions.length} transactions
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -70,7 +70,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 transition-colors">
                 Something went wrong
               </h1>
-              <p className="text-slate-600 dark:text-slate-400 mb-6 transition-colors">
+              <p className="text-gray-600 mb-6">
                 We&apos;re sorry, but something unexpected happened. The application has encountered an error and needs to reload.
               </p>
             </div>
@@ -78,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="space-y-3">
               <button
                 onClick={this.handleReload}
-                className="w-full bg-axion-500 hover:bg-axion-600 text-white font-medium py-3 px-4 rounded-xl shadow-lg shadow-axion-500/20 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-axion-500 focus:ring-offset-2 active:scale-95"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-text-primary font-medium py-3 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 Reload Application
               </button>

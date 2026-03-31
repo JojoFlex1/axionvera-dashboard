@@ -1,11 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { notify } from "@/utils/notifications";
 
-import { createAxionveraVaultSdk, parsePositiveAmount } from "@/utils/contractHelpers";
+import {
+  createAxionveraVaultSdk,
+  parsePositiveAmount,
+  type AxionveraVaultSdk,
+  type VaultTx
+} from "@/utils/contractHelpers";
 import { NETWORK } from "@/utils/networkConfig";
-import type { VaultTx } from "@/utils/contractHelpers";
 
 type UseVaultArgs = {
   walletAddress: string | null;
+  sdk?: AxionveraVaultSdk;
+};
+
+type VaultActionType = "deposit" | "withdraw";
+
+type VaultActionState = {
+  status: "idle" | "pending" | "success" | "error";
+  hash: string | null;
+  lastAmount: string | null;
+  error: string | null;
 };
 
 type VaultState = {
@@ -16,116 +31,253 @@ type VaultState = {
   isSubmitting: boolean;
   isClaiming: boolean;
   error: string | null;
+  actions: Record<VaultActionType, VaultActionState>;
 };
 
-export function useVault({ walletAddress }: UseVaultArgs) {
-  const sdk = useMemo(() => createAxionveraVaultSdk(), []);
-  const [state, setState] = useState<VaultState>({
+const INITIAL_ACTION_STATE: VaultActionState = {
+  status: "idle",
+  hash: null,
+  lastAmount: null,
+  error: null
+};
+
+const INITIAL_STATE: VaultState = {
+  balance: "0",
+  rewards: "0",
+  transactions: [],
+  isLoading: false,
+  isSubmitting: false,
+  isClaiming: false,
+  error: null,
+  actions: {
+    deposit: { ...INITIAL_ACTION_STATE },
+    withdraw: { ...INITIAL_ACTION_STATE }
+  }
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function createPendingTransaction(type: VaultActionType, amount: string): VaultTx {
+  return {
+    id: `pending-${type}-${Date.now()}`,
+    type,
+    amount,
+    status: "pending",
+    createdAt: new Date().toISOString()
+  };
+}
+
+function upsertTransaction(transactions: VaultTx[], transaction: VaultTx) {
+  return [transaction, ...transactions.filter((existing) => existing.id !== transaction.id)].slice(0, 25);
+}
+
+function resetDisconnectedVaultState(state: VaultState): VaultState {
+  return {
+    ...state,
     balance: "0",
     rewards: "0",
     transactions: [],
-    isLoading: false,
-    isSubmitting: false,
-    isClaiming: false,
     error: null
-  });
+  };
+}
+
+function getWalletMessage(type: VaultActionType) {
+  return type === "deposit" ? "Connect a wallet to deposit." : "Connect a wallet to withdraw.";
+}
+
+function getFailureTitle(type: VaultActionType) {
+  return type === "deposit" ? "Deposit Failed" : "Withdrawal Failed";
+}
+
+function updateActionState(
+  state: VaultState,
+  type: VaultActionType,
+  patch: Partial<VaultActionState>
+): VaultState {
+  return {
+    ...state,
+    actions: {
+      ...state.actions,
+      [type]: {
+        ...state.actions[type],
+        ...patch
+      }
+    }
+  };
+}
+
+export function useVault({ walletAddress, sdk: providedSdk }: UseVaultArgs) {
+  const sdk = useMemo(() => providedSdk ?? createAxionveraVaultSdk(), [providedSdk]);
+  const [state, setState] = useState<VaultState>(INITIAL_STATE);
 
   const refresh = useCallback(async () => {
     if (!walletAddress) {
-      setState((s) => ({ ...s, balance: "0", rewards: "0", transactions: [], error: null }));
+      setState((current) => resetDisconnectedVaultState(current));
       return;
     }
 
-    setState((s) => ({ ...s, isLoading: true, error: null }));
+    setState((current) => ({ ...current, isLoading: true, error: null }));
     try {
-      const [balances, txs] = await Promise.all([
+      const [balances, transactions] = await Promise.all([
         sdk.getBalances({ walletAddress, network: NETWORK }),
         sdk.getTransactions({ walletAddress, network: NETWORK })
       ]);
-      setState((s) => ({
-        ...s,
+
+      setState((current) => ({
+        ...current,
         balance: balances.balance,
         rewards: balances.rewards,
-        transactions: txs,
+        transactions,
         isLoading: false
       }));
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to load vault state.";
-      setState((s) => ({ ...s, isLoading: false, error: message }));
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to load vault state.");
+      notify.error("Vault Update Failed", message);
+      setState((current) => ({ ...current, isLoading: false, error: message }));
     }
   }, [sdk, walletAddress]);
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, [refresh]);
 
-  const deposit = useCallback(
-    async (amountInput: string) => {
+  const setValidationError = useCallback((type: VaultActionType, message: string, amount?: string) => {
+    setState((current) => {
+      const next = updateActionState(current, type, {
+        status: "error",
+        error: message,
+        hash: null,
+        lastAmount: amount ?? current.actions[type].lastAmount
+      });
+
+      return {
+        ...next,
+        error: message
+      };
+    });
+  }, []);
+
+  const runAmountAction = useCallback(
+    async (
+      type: VaultActionType,
+      amountInput: string,
+      execute: (amount: string) => Promise<VaultTx>,
+      validate?: (amount: string) => string | null
+    ) => {
       const amount = parsePositiveAmount(amountInput);
+
       if (!walletAddress) {
-        setState((s) => ({ ...s, error: "Connect a wallet to deposit." }));
-        return;
-      }
-      if (!amount) {
-        setState((s) => ({ ...s, error: "Enter a valid amount greater than zero." }));
+        setValidationError(type, getWalletMessage(type));
         return;
       }
 
-      setState((s) => ({ ...s, isSubmitting: true, error: null }));
+      if (!amount) {
+        setValidationError(type, "Enter a valid amount greater than zero.");
+        return;
+      }
+
+      const validationMessage = validate?.(amount);
+      if (validationMessage) {
+        setValidationError(type, validationMessage, amount);
+        return;
+      }
+
+      const pendingTransaction = createPendingTransaction(type, amount);
+
+      setState((current) => {
+        const next = updateActionState(current, type, {
+          status: "pending",
+          hash: null,
+          error: null,
+          lastAmount: amount
+        });
+
+        return {
+          ...next,
+          isSubmitting: true,
+          error: null,
+          transactions: upsertTransaction(current.transactions, pendingTransaction)
+        };
+      });
+
       try {
-        await sdk.deposit({ walletAddress, network: NETWORK, amount });
+        const transaction = await execute(amount);
         await refresh();
-      } catch (e) {
-        const message = e instanceof Error ? e.message : "Deposit failed.";
-        setState((s) => ({ ...s, error: message }));
+        setState((current) =>
+          updateActionState(current, type, {
+            status: "success",
+            hash: transaction.hash ?? null,
+            error: null,
+            lastAmount: amount
+          })
+        );
+      } catch (error) {
+        const message = getErrorMessage(error, `${type === "deposit" ? "Deposit" : "Withdraw"} failed.`);
+        notify.error(getFailureTitle(type), message);
+        setState((current) => {
+          const next = updateActionState(current, type, {
+            status: "error",
+            hash: null,
+            error: message,
+            lastAmount: amount
+          });
+
+          return {
+            ...next,
+            error: message,
+            transactions: upsertTransaction(current.transactions, {
+              ...pendingTransaction,
+              status: "failed"
+            })
+          };
+        });
       } finally {
-        setState((s) => ({ ...s, isSubmitting: false }));
+        setState((current) => ({ ...current, isSubmitting: false }));
       }
     },
-    [refresh, sdk, walletAddress]
+    [refresh, setValidationError, walletAddress]
+  );
+
+  const deposit = useCallback(
+    async (amountInput: string) =>
+      runAmountAction("deposit", amountInput, (amount) =>
+        sdk.deposit({ walletAddress: walletAddress as string, network: NETWORK, amount })
+      ),
+    [runAmountAction, sdk, walletAddress]
   );
 
   const withdraw = useCallback(
-    async (amountInput: string) => {
-      const amount = parsePositiveAmount(amountInput);
-      if (!walletAddress) {
-        setState((s) => ({ ...s, error: "Connect a wallet to withdraw." }));
-        return;
-      }
-      if (!amount) {
-        setState((s) => ({ ...s, error: "Enter a valid amount greater than zero." }));
-        return;
-      }
-
-      setState((s) => ({ ...s, isSubmitting: true, error: null }));
-      try {
-        await sdk.withdraw({ walletAddress, network: NETWORK, amount });
-        await refresh();
-      } catch (e) {
-        const message = e instanceof Error ? e.message : "Withdraw failed.";
-        setState((s) => ({ ...s, error: message }));
-      } finally {
-        setState((s) => ({ ...s, isSubmitting: false }));
-      }
-    },
-    [refresh, sdk, walletAddress]
+    async (amountInput: string) =>
+      runAmountAction(
+        "withdraw",
+        amountInput,
+        (amount) => sdk.withdraw({ walletAddress: walletAddress as string, network: NETWORK, amount }),
+        (amount) =>
+          Number(amount) > Number(state.balance)
+            ? "Withdrawal amount exceeds your available vault balance."
+            : null
+      ),
+    [runAmountAction, sdk, state.balance, walletAddress]
   );
 
   const claimRewards = useCallback(async () => {
     if (!walletAddress) {
-      setState((s) => ({ ...s, error: "Connect a wallet to claim rewards." }));
+      setState((current) => ({ ...current, error: "Connect a wallet to claim rewards." }));
       return;
     }
 
-    setState((s) => ({ ...s, isClaiming: true, error: null }));
+    setState((current) => ({ ...current, isClaiming: true, error: null }));
     try {
       await sdk.claimRewards({ walletAddress, network: NETWORK });
       await refresh();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Claim failed.";
-      setState((s) => ({ ...s, error: message }));
+    } catch (error) {
+      const message = getErrorMessage(error, "Claim failed.");
+      notify.error("Claim Failed", message);
+      setState((current) => ({ ...current, error: message }));
     } finally {
-      setState((s) => ({ ...s, isClaiming: false }));
+      setState((current) => ({ ...current, isClaiming: false }));
     }
   }, [refresh, sdk, walletAddress]);
 
@@ -137,6 +289,14 @@ export function useVault({ walletAddress }: UseVaultArgs) {
     isSubmitting: state.isSubmitting,
     isClaiming: state.isClaiming,
     error: state.error,
+    depositStatus: state.actions.deposit.status,
+    depositHash: state.actions.deposit.hash,
+    lastDepositAmount: state.actions.deposit.lastAmount,
+    depositError: state.actions.deposit.error,
+    withdrawStatus: state.actions.withdraw.status,
+    withdrawHash: state.actions.withdraw.hash,
+    lastWithdrawAmount: state.actions.withdraw.lastAmount,
+    withdrawError: state.actions.withdraw.error,
     refresh,
     deposit,
     withdraw,

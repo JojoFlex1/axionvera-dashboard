@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 
 import { useSidebar } from "@/hooks/useSidebar";
 import { shortenAddress } from "@/utils/contractHelpers";
-import { ThemeToggle } from "./ThemeToggle";
+import ThemeToggle from "./ThemeToggle";
 
 type NavbarProps = {
   address: string | null;
@@ -70,9 +70,8 @@ export default function Navbar({ address, isConnecting, onConnect, onDisconnect 
           </nav>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <ThemeToggle />
-          
           {address ? (
             <div className="flex items-center gap-2">
               <div className="hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/30 dark:bg-slate-900/30 px-3 py-2 text-xs text-slate-700 dark:text-slate-200 sm:block">
