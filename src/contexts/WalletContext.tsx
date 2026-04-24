@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useCallback, useEffect, useMemo, useState, ReactNode, useRef } from 'react';
 import { StellarNetwork, NETWORK, HORIZON_URL } from '@/utils/networkConfig';
+import { apiClient } from '@/utils/apiClient';
 
 type WalletType = 'freighter' | 'albedo';
 
@@ -42,15 +43,11 @@ async function fetchBalance(address: string, network: StellarNetwork): Promise<s
       ? 'https://horizon.stellar.org' 
       : 'https://horizon-testnet.stellar.org';
     
-    const response = await fetch(`${horizonUrl}/accounts/${address}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch account');
-    }
-    
-    const data = await response.json();
+    const data = await apiClient(`${horizonUrl}/accounts/${address}`);
     const xlmBalance = data.balances?.find((b: { asset_type: string; balance: string }) => b.asset_type === 'native');
     return xlmBalance?.balance ?? '0';
-  } catch {
+  } catch (error) {
+    console.error('Failed to fetch balance:', error);
     return '0';
   }
 }
