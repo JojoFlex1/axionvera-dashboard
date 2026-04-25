@@ -102,7 +102,11 @@ const MOCK_TRANSACTIONS: VaultTx[] = [
     amount: "3000.00",
     status: "pending",
     createdAt: new Date(Date.now() - 691200000).toISOString(), // 8 days ago
+<<<<<<< HEAD
     hash: "PALLC3SYJYD5T5Z3STYN3ZK3BXP5GTFBV3XZYOYF2U2E3F2K5N2AJE"
+=======
+    hash: null
+>>>>>>> 35916c42a7d70f822e3e09c7e1706c6850f48c86
   },
   {
     id: "mock_tx_010",
