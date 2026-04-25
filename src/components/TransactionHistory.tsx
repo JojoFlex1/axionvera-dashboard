@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { formatAmount, shortenAddress } from "@/utils/contractHelpers";
 import type { VaultTx, VaultTxType, VaultTxStatus } from "@/utils/contractHelpers";
+import CopyButton from "./CopyButton";
 import { TransactionSkeleton } from "./Skeletons";
 
 type TransactionHistoryProps = {
@@ -121,12 +122,14 @@ export default function TransactionHistory({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-xs text-text-muted">
-          Type
+        <div className="flex items-center gap-2">
+          <label htmlFor="type-filter" className="text-xs text-text-muted">Type</label>
           <select
+            id="type-filter"
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
             className={selectClassName}
+            aria-label="Filter transactions by type"
           >
             {TYPE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -134,13 +137,15 @@ export default function TransactionHistory({
               </option>
             ))}
           </select>
-        </label>
-        <label className="flex items-center gap-2 text-xs text-text-muted">
-          Status
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="status-filter" className="text-xs text-text-muted">Status</label>
           <select
+            id="status-filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
             className={selectClassName}
+            aria-label="Filter transactions by status"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -148,7 +153,7 @@ export default function TransactionHistory({
               </option>
             ))}
           </select>
-        </label>
+        </div>
         {hasActiveFilter ? (
           <button
             type="button"
@@ -156,100 +161,50 @@ export default function TransactionHistory({
               setTypeFilter("all");
               setStatusFilter("all");
             }}
-            className="text-xs text-axion-400 transition hover:text-axion-300"
+            aria-label="Clear all transaction filters"
+            className="text-xs text-axion-400 transition hover:text-axion-300 focus:outline-none focus:underline"
           >
             Clear filters
           </button>
         ) : null}
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-2xl border border-border-primary">
-        <div className="hidden sm:block">
-          <div className="grid grid-cols-[1.2fr_1fr_1fr_0.9fr] gap-3 bg-background-secondary/20 px-4 py-3 text-xs text-text-secondary">
-            <div>Type</div>
-            <button
-              type="button"
-              onClick={() => toggleSort("amount")}
-              className="inline-flex items-center gap-1 text-left transition hover:text-text-primary"
-            >
-              Amount
-              <span aria-hidden>{sortIcon(sortKey === "amount", sortDirection)}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleSort("createdAt")}
-              className="inline-flex items-center gap-1 text-left transition hover:text-text-primary"
-            >
-              Date
-              <span aria-hidden>{sortIcon(sortKey === "createdAt", sortDirection)}</span>
-            </button>
-            <div>Status</div>
-          </div>
-          <div className="divide-y divide-border-primary">
-            {isLoading ? (
-              <TransactionSkeleton />
-            ) : sortedTransactions.length === 0 ? (
-              <div className="px-4 py-6 text-sm text-text-secondary">
-                {hasActiveFilter ? "No transactions match the selected filters." : "No transactions yet."}
-              </div>
-            ) : (
-              sortedTransactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="grid grid-cols-[1.2fr_1fr_1fr_0.9fr] items-center gap-3 px-4 py-3 text-sm"
-                >
-                  <div className="text-text-primary">{typeLabel(tx.type)}</div>
-                  <div className="text-text-primary">{formatAmount(tx.amount)}</div>
-                  <div className="text-text-muted">{new Date(tx.createdAt).toLocaleString()}</div>
-                  <div>
-                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${statusStyles(tx.status)}`}>
-                      {tx.status}
-                    </span>
-                    {tx.hash ? <div className="mt-1 text-xs text-text-muted">Hash: {shortenAddress(tx.hash, 8)}</div> : null}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+      <div className="mt-5 overflow-hidden rounded-2xl border border-border-primary" role="table" aria-label="Transaction History">
+        <div className="grid grid-cols-[1.2fr_1fr_1fr_0.9fr] gap-3 bg-background-secondary/20 px-4 py-3 text-xs text-text-secondary font-semibold" role="row">
+          <div role="columnheader">Type</div>
+          <div role="columnheader">Amount</div>
+          <div role="columnheader">Created</div>
+          <div role="columnheader">Status</div>
         </div>
-
-        <div className="divide-y divide-border-primary sm:hidden">
-          <div className="flex items-center gap-4 px-4 py-3 text-xs text-text-secondary">
-            <button
-              type="button"
-              onClick={() => toggleSort("amount")}
-              className="inline-flex items-center gap-1 transition hover:text-text-primary"
-            >
-              Amount
-              <span aria-hidden>{sortIcon(sortKey === "amount", sortDirection)}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleSort("createdAt")}
-              className="inline-flex items-center gap-1 transition hover:text-text-primary"
-            >
-              Date
-              <span aria-hidden>{sortIcon(sortKey === "createdAt", sortDirection)}</span>
-            </button>
-          </div>
+        <div className="divide-y divide-border-primary" role="rowgroup">
           {isLoading ? (
             <TransactionSkeleton />
-          ) : sortedTransactions.length === 0 ? (
-            <div className="px-4 py-6 text-sm text-text-secondary">
-              {hasActiveFilter ? "No transactions match the selected filters." : "No transactions yet."}
+          ) : filteredTransactions.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-text-secondary" role="row">
+              <div role="cell" className="col-span-4">
+                {hasActiveFilter ? "No transactions match the selected filters." : "No transactions yet."}
+              </div>
             </div>
           ) : (
-            sortedTransactions.map((tx) => (
-              <article key={tx.id} className="space-y-2 px-4 py-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-text-primary">{typeLabel(tx.type)}</span>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${statusStyles(
-                      tx.status
-                    )}`}
-                  >
+            filteredTransactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="grid grid-cols-[1.2fr_1fr_1fr_0.9fr] items-center gap-3 px-4 py-3 text-sm"
+                role="row"
+              >
+                <div className="text-text-primary" role="cell">{typeLabel(tx.type)}</div>
+                <div className="text-text-primary" role="cell">{formatAmount(tx.amount)}</div>
+                <div className="text-text-muted" role="cell">{new Date(tx.createdAt).toLocaleString()}</div>
+                <div role="cell">
+                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${statusStyles(tx.status)}`}>
                     {tx.status}
                   </span>
+                  {tx.hash ? (
+                    <div className="mt-1 flex items-center gap-1 text-xs text-text-muted">
+                      <span>Hash: {shortenAddress(tx.hash, 8)}</span>
+                      <CopyButton text={tx.hash} label="Copy hash" size="sm" />
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <span className="text-text-muted">Amount</span>
