@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { formatAmount, shortenAddress } from "@/utils/contractHelpers";
 import type { VaultTx, VaultTxType, VaultTxStatus } from "@/utils/contractHelpers";
+import CopyButton from "./CopyButton";
 import { TransactionSkeleton } from "./Skeletons";
 
 type TransactionHistoryProps = {
@@ -156,7 +157,10 @@ export default function TransactionHistory({
                     {tx.status}
                   </span>
                   {tx.hash ? (
-                    <div className="mt-1 text-xs text-text-muted">Hash: {shortenAddress(tx.hash, 8)}</div>
+                    <div className="mt-1 flex items-center gap-1 text-xs text-text-muted">
+                      <span>Hash: {shortenAddress(tx.hash, 8)}</span>
+                      <CopyButton text={tx.hash} label="Copy hash" size="sm" />
+                    </div>
                   ) : null}
                 </div>
               </div>
