@@ -1,10 +1,11 @@
 import { forwardRef } from 'react';
 import { FieldError } from 'react-hook-form';
 
-interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: FieldError | { message?: string };
-  helperText?: string;
+export interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string | React.ReactNode;
+  error?: FormFieldError;
+  touched?: boolean;
+  helperText?: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -13,42 +14,49 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
     const hasError = !!error;
     const errorMessage = error?.message;
 
+    const inputId = props.id || `input-${label?.toLowerCase().replace(/\s+/g, '-')}`;
+    const errorId = `${inputId}-error`;
+    const helperId = `${inputId}-helper`;
+
     return (
       <div className="flex flex-col gap-2 w-full">
         {label && (
           <label 
-            htmlFor={props.id}
+            htmlFor={inputId}
             className={`text-xs font-medium ${
-              hasError ? 'text-red-400' : 'text-text-secondary'
+              hasError ? 'text-red-500 dark:text-red-400' : 'text-text-secondary'
             }`}
           >
             {label}
-            {props.required && <span className="text-red-500 dark:text-red-400 ml-1">*</span>}
+            {props.required && <span className="text-red-500 dark:text-red-400 ml-1" aria-hidden="true">*</span>}
           </label>
         )}
         
-        <div className="relative">
-          <input
-            ref={ref}
-            className={`
-              w-full rounded-xl border px-4 py-3 text-sm text-text-primary outline-none ring-0 
-              placeholder:text-text-muted transition-colors
-              ${hasError 
-                ? 'border-red-500/70 bg-red-500/5 focus:border-red-500' 
-                : 'border-border-primary bg-background-secondary/30 focus:border-axion-500/70'
-              }
-              ${className}
-            `}
-            {...props}
-          />
-          {children}
-        </div>
+        <input
+          ref={ref}
+          id={inputId}
+          aria-invalid={hasError ? "true" : "false"}
+          aria-describedby={`${showError ? errorId : ''} ${helperText ? helperId : ''}`.trim() || undefined}
+          className={`
+            w-full rounded-xl border px-4 py-3 text-sm text-text-primary 
+            transition-all duration-200
+            placeholder:text-text-muted
+            focus:outline-none focus:ring-2 focus:ring-axion-500/50 focus:border-axion-500
+            ${hasError 
+              ? 'border-red-500/70 bg-red-500/5 focus:border-red-500 focus:ring-red-500/20' 
+              : 'border-border-primary bg-background-secondary/30'
+            }
+            ${className}
+          `}
+          {...inputProps}
+          onChange={(event) => onChange?.(event.target.value as never)}
+        />
         
         <div className="min-h-[1.25rem]">
-          {errorMessage ? (
-            <p className="text-xs text-red-500 dark:text-red-400">{errorMessage}</p>
-          ) : helperText ? (
-            <p className="text-xs text-text-muted">{helperText}</p>
+          {showError ? (
+            <p id={errorId} className="text-xs text-red-500 dark:text-red-400 font-medium">{error.message}</p>
+          ) : helperText && !touched ? (
+            <p id={helperId} className="text-xs text-text-muted">{helperText}</p>
           ) : null}
         </div>
       </div>

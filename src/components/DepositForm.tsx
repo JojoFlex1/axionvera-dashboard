@@ -4,6 +4,8 @@ import { FormInput } from './FormInput';
 import { depositSchema, DepositFormData } from '@/utils/validation';
 import { notify } from '@/utils/notifications';
 import { shortenAddress } from '@/utils/contractHelpers';
+import { AppTooltip } from './AppTooltip';
+import { GLOSSARY } from '@/utils/glossary';
 
 type DepositFormProps = {
   isConnected: boolean;
@@ -60,8 +62,16 @@ export default function DepositForm({
           placeholder="0.0"
           label="Amount"
           required
-          error={errors.amount}
-          helperText="Enter amount between 0.0001 and 10,000"
+          helperText={
+            <span>
+              Enter amount between 0.0001 and 10,000{' '}
+              <AppTooltip content={GLOSSARY.slippage}>
+                <span className="cursor-help font-semibold uppercase tracking-wider text-axion-500 underline decoration-dotted decoration-axion-500/50 underline-offset-2 transition-colors hover:text-axion-400">
+                  Slippage
+                </span>
+              </AppTooltip>
+            </span>
+          }
         />
 
         {status !== 'idle' ? (

@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemeProvider as AppThemeProvider } from "@/contexts/ThemeContext";
 import { WalletProvider } from "@/contexts/WalletContext";
 import ThemeToggle from "@/components/ThemeToggle";
+import { inter, jetbrainsMono } from "@/lib/fonts";
 
 import { useEffect } from "react";
 import { initTelemetry } from "@/utils/telemetry";
@@ -17,9 +18,12 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <NextThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <AppThemeProvider>
+    // Apply CSS-variable font classes to the root so the custom properties
+    // (--font-inter, --font-mono) are available globally via Tailwind's
+    // fontFamily tokens and any CSS that references them directly.
+    <div className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <ErrorBoundary>
+        <ThemeProvider>
           <WalletProvider>
             <Component {...pageProps} />
             <ThemeToggle />
@@ -30,8 +34,8 @@ export default function App({ Component, pageProps }: AppProps) {
               duration={4000}
             />
           </WalletProvider>
-        </AppThemeProvider>
-      </NextThemeProvider>
-    </ErrorBoundary>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </div>
   );
 }

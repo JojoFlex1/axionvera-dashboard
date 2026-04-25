@@ -1,9 +1,11 @@
 import { formatAmount, shortenAddress } from "@/utils/contractHelpers";
 import { StatisticsSkeleton } from "./Skeletons";
+import { AppTooltip } from "./AppTooltip";
+import { GLOSSARY } from "@/utils/glossary";
 
 type BalanceCardProps = {
   isConnected: boolean;
-  address: string | null;
+  publicKey: string | null;
   balance: string;
   rewards: string;
   isLoading: boolean;
@@ -13,7 +15,7 @@ type BalanceCardProps = {
 
 export default function BalanceCard({
   isConnected,
-  address,
+  publicKey,
   balance,
   rewards,
   isLoading,
@@ -28,7 +30,7 @@ export default function BalanceCard({
         <div>
           <div className="text-sm font-semibold text-text-primary">Vault balance</div>
           <div className="mt-1 text-xs text-text-muted">
-            {isConnected && address ? `Wallet: ${shortenAddress(address, 6)}` : "Connect a wallet to view balances."}
+            {isConnected && publicKey ? `Wallet: ${shortenAddress(publicKey, 6)}` : "Connect a wallet to view balances."}
           </div>
         </div>
         <button
@@ -42,9 +44,16 @@ export default function BalanceCard({
         </button>
       </div>
 
-      <div className="mt-6 grid gap-4">
+        <div className="mt-6 grid gap-4">
         <div className="rounded-2xl border border-border-primary bg-background-secondary/20 p-4">
-          <div className="text-xs text-text-muted">Balance</div>
+          <div className="flex items-baseline gap-1.5">
+            <div className="text-xs text-text-muted">Balance</div>
+            <AppTooltip content={GLOSSARY.tvl}>
+              <span className="cursor-help text-[10px] font-semibold uppercase tracking-wider text-text-tertiary underline decoration-dotted decoration-border-tertiary underline-offset-2 transition-colors hover:text-text-muted">
+                TVL
+              </span>
+            </AppTooltip>
+          </div>
           <div className="mt-2 text-3xl font-semibold text-text-primary">{formatAmount(balance)}</div>
         </div>
         <div className="rounded-2xl border border-border-primary bg-background-secondary/20 p-4">
