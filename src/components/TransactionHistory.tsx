@@ -1,8 +1,37 @@
 import { useMemo, useState } from "react";
 import { formatAmount, shortenAddress } from "@/utils/contractHelpers";
-import type { VaultTx, VaultTxType, VaultTxStatus } from "@/utils/contractHelpers";
+import type {
+  VaultTx,
+  VaultTxType,
+  VaultTxStatus,
+} from "@/utils/contractHelpers";
 import CopyButton from "./CopyButton";
 import { TransactionSkeleton } from "./Skeletons";
+
+// Simple Popover component inline to avoid adding dependencies
+function FilterPopover({
+  children,
+  isOpen,
+  onClose
+}: {
+  children: React.ReactNode;
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  if (!isOpen) return null;
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-40"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-border-primary bg-background-primary p-4 shadow-lg">
+        {children}
+      </div>
+    </>
+  );
+}
 
 type TransactionHistoryProps = {
   isConnected: boolean;
@@ -33,8 +62,10 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
 ];
 
 function statusStyles(status: VaultTx["status"]) {
-  if (status === "success") return "border-emerald-900/50 bg-emerald-950/30 text-emerald-200";
-  if (status === "failed") return "border-rose-900/50 bg-rose-950/30 text-rose-200";
+  if (status === "success")
+    return "border-emerald-900/50 bg-emerald-950/30 text-emerald-200";
+  if (status === "failed")
+    return "border-rose-900/50 bg-rose-950/30 text-rose-200";
   return "border-border-primary bg-background-secondary/30 text-text-primary";
 }
 
@@ -57,16 +88,32 @@ export default function TransactionHistory({
 }: TransactionHistoryProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
       if (typeFilter !== "all" && tx.type !== typeFilter) return false;
       if (statusFilter !== "all" && tx.status !== statusFilter) return false;
+
+      const txDate = new Date(tx.createdAt).getTime();
+
+      if (startDate) {
+        const startTime = new Date(startDate).setHours(0, 0, 0, 0);
+        if (txDate < startTime) return false;
+      }
+
+      if (endDate) {
+        const endTime = new Date(endDate).setHours(23, 59, 59, 999);
+        if (txDate > endTime) return false;
+      }
+
       return true;
     });
-  }, [transactions, typeFilter, statusFilter]);
+  }, [transactions, typeFilter, statusFilter, startDate, endDate]);
 
   const sortedTransactions = useMemo(() => {
     const sorted = [...filteredTransactions];
@@ -83,7 +130,7 @@ export default function TransactionHistory({
     return sorted;
   }, [filteredTransactions, sortKey, sortDirection]);
 
-  const hasActiveFilter = typeFilter !== "all" || statusFilter !== "all";
+  const hasActiveFilter = typeFilter !== "all" || statusFilter !== "all" || startDate !== "" || endDate !== "";
 
   function toggleSort(nextKey: SortKey) {
     if (sortKey === nextKey) {
@@ -93,6 +140,13 @@ export default function TransactionHistory({
     setSortKey(nextKey);
     setSortDirection("desc");
   }
+
+  const clearFilters = () => {
+    setTypeFilter("all");
+    setStatusFilter("all");
+    setStartDate("");
+    setEndDate("");
+  };
 
   return (
     <section className="rounded-2xl border border-border-primary bg-background-primary/30 p-6">
@@ -109,7 +163,9 @@ export default function TransactionHistory({
           type="button"
           onClick={onClaimRewards}
           disabled={!isConnected || isClaiming}
-          aria-label={isClaiming ? "Claiming rewards" : "Claim your earned rewards"}
+          aria-label={
+            isClaiming ? "Claiming rewards" : "Claim your earned rewards"
+          }
           className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isClaiming ? "Claiming..." : "Claim Rewards"}
@@ -118,7 +174,9 @@ export default function TransactionHistory({
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
-          <label htmlFor="type-filter" className="text-xs text-text-muted">Type</label>
+          <label htmlFor="type-filter" className="text-xs text-text-muted">
+            Type
+          </label>
           <select
             id="type-filter"
             value={typeFilter}
@@ -132,7 +190,9 @@ export default function TransactionHistory({
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor="status-filter" className="text-xs text-text-muted">Status</label>
+          <label htmlFor="status-filter" className="text-xs text-text-muted">
+            Status
+          </label>
           <select
             id="status-filter"
             value={statusFilter}
@@ -152,9 +212,9 @@ export default function TransactionHistory({
             aria-label="Clear all transaction filters"
             className="text-xs text-axion-400 transition hover:text-axion-300 focus:outline-none focus:underline"
           >
-            Clear filters
+            {isClaiming ? "Claiming..." : "Claim Rewards"}
           </button>
-        ) : null}
+        </div>
       </div>
 
       <div
