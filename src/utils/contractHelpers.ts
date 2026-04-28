@@ -1,8 +1,7 @@
 import type { StellarNetwork } from "@/utils/networkConfig";
-import { withApiResilience, withErrorHandling, safeApiCall, ApiCallOptions } from "./apiResilience";
+import { withApiResilience, withErrorHandling, ApiCallOptions } from "./apiResilience";
 
 export type VaultTxType = "deposit" | "withdraw" | "claim";
-
 export type VaultTxStatus = "pending" | "success" | "failed";
 
 export type VaultTx = {
@@ -67,8 +66,10 @@ function createId() {
 
 function loadVault(walletAddress: string, network: StellarNetwork): StoredVault {
   if (typeof window === "undefined") return { balance: "0", rewards: "0", txs: [] };
+
   const raw = window.localStorage.getItem(getStorageKey(walletAddress, network));
   if (!raw) return { balance: "0", rewards: "0", txs: [] };
+
   try {
     const parsed = JSON.parse(raw) as StoredVault;
     return {
@@ -91,118 +92,142 @@ function toFixedString(n: number) {
 }
 
 export function createAxionveraVaultSdk(): AxionveraVaultSdk {
-  // Base implementations without resilience
   const baseSdk = {
     async getBalances({ walletAddress, network }: { walletAddress: string; network: StellarNetwork }) {
-      await sleep(150);
       const vault = loadVault(walletAddress, network);
       return { balance: vault.balance, rewards: vault.rewards };
     },
+
     async getTransactions({ walletAddress, network }: { walletAddress: string; network: StellarNetwork }) {
-      await sleep(150);
       const vault = loadVault(walletAddress, network);
       return vault.txs;
     },
+
     async deposit({ walletAddress, network, amount }: { walletAddress: string; network: StellarNetwork; amount: string }) {
+      const txId = createId();
+
+      // ✅ always reload fresh state
+      const vault = loadVault(walletAddress, network);
+
       const tx: VaultTx = {
-        id: createId(),
+        id: txId,
         type: "deposit",
         amount,
         status: "pending",
         createdAt: new Date().toISOString()
       };
 
-      const vault = loadVault(walletAddress, network);
-      vault.txs = [tx, ...vault.txs].slice(0, 25);
-      saveVault(walletAddress, network, vault);
+      saveVault(walletAddress, network, {
+        ...vault,
+        txs: [tx, ...vault.txs].slice(0, 25)
+      });
 
-      await sleep(450);
-      const balance = Number(vault.balance) + Number(amount);
-      const rewards = Number(vault.rewards) + Number(amount) * 0.01;
-      const completed: VaultTx = { ...tx, status: "success", hash: `SIM-${createId()}` };
+      await sleep(1); // fast for tests
 
-      const next: StoredVault = {
-        balance: toFixedString(balance),
-        rewards: toFixedString(rewards),
-        txs: [completed, ...vault.txs.filter((t) => t.id !== tx.id)].slice(0, 25)
+      const fresh = loadVault(walletAddress, network);
+
+      const nextBalance = Number(fresh.balance) + Number(amount);
+      const nextRewards = Number(fresh.rewards) + Number(amount) * 0.01;
+
+      const completed: VaultTx = {
+        ...tx,
+        status: "success",
+        hash: `SIM-${createId()}`
       };
-      saveVault(walletAddress, network, next);
+
+      saveVault(walletAddress, network, {
+        balance: toFixedString(nextBalance),
+        rewards: toFixedString(nextRewards),
+        txs: [completed, ...fresh.txs.filter(t => t.id !== txId)].slice(0, 25)
+      });
+
       return completed;
     },
+
     async withdraw({ walletAddress, network, amount }: { walletAddress: string; network: StellarNetwork; amount: string }) {
+      const txId = createId();
+
+      const vault = loadVault(walletAddress, network);
+
       const tx: VaultTx = {
-        id: createId(),
+        id: txId,
         type: "withdraw",
         amount,
         status: "pending",
         createdAt: new Date().toISOString()
       };
 
-      const vault = loadVault(walletAddress, network);
-      vault.txs = [tx, ...vault.txs].slice(0, 25);
-      saveVault(walletAddress, network, vault);
+      saveVault(walletAddress, network, {
+        ...vault,
+        txs: [tx, ...vault.txs].slice(0, 25)
+      });
 
-      await sleep(450);
-      const balance = Math.max(0, Number(vault.balance) - Number(amount));
-      const completed: VaultTx = { ...tx, status: "success", hash: `SIM-${createId()}` };
+      await sleep(1);
 
-      const next: StoredVault = {
-        balance: toFixedString(balance),
-        rewards: vault.rewards,
-        txs: [completed, ...vault.txs.filter((t) => t.id !== tx.id)].slice(0, 25)
+      const fresh = loadVault(walletAddress, network);
+
+      const nextBalance = Math.max(0, Number(fresh.balance) - Number(amount));
+
+      const completed: VaultTx = {
+        ...tx,
+        status: "success",
+        hash: `SIM-${createId()}`
       };
-      saveVault(walletAddress, network, next);
+
+      saveVault(walletAddress, network, {
+        balance: toFixedString(nextBalance),
+        rewards: fresh.rewards,
+        txs: [completed, ...fresh.txs.filter(t => t.id !== txId)].slice(0, 25)
+      });
+
       return completed;
     },
+
     async claimRewards({ walletAddress, network }: { walletAddress: string; network: StellarNetwork }) {
+      const txId = createId();
+
       const vault = loadVault(walletAddress, network);
-      const amount = vault.rewards;
+
       const tx: VaultTx = {
-        id: createId(),
+        id: txId,
         type: "claim",
-        amount,
+        amount: vault.rewards,
         status: "pending",
         createdAt: new Date().toISOString()
       };
 
-      vault.txs = [tx, ...vault.txs].slice(0, 25);
-      saveVault(walletAddress, network, vault);
+      saveVault(walletAddress, network, {
+        ...vault,
+        txs: [tx, ...vault.txs].slice(0, 25)
+      });
 
-      await sleep(450);
-      const balance = Number(vault.balance) + Number(vault.rewards);
-      const completed: VaultTx = { ...tx, status: "success", hash: `SIM-${createId()}` };
+      await sleep(1);
 
-      const next: StoredVault = {
-        balance: toFixedString(balance),
-        rewards: "0",
-        txs: [completed, ...vault.txs.filter((t) => t.id !== tx.id)].slice(0, 25)
+      const fresh = loadVault(walletAddress, network);
+
+      const nextBalance = Number(fresh.balance) + Number(fresh.rewards);
+
+      const completed: VaultTx = {
+        ...tx,
+        status: "success",
+        hash: `SIM-${createId()}`
       };
-      saveVault(walletAddress, network, next);
+
+      saveVault(walletAddress, network, {
+        balance: toFixedString(nextBalance),
+        rewards: "0",
+        txs: [completed, ...fresh.txs.filter(t => t.id !== txId)].slice(0, 25)
+      });
+
       return completed;
     }
   };
 
-  // Wrap all methods with resilience and error handling
   return {
-    getBalances: withErrorHandling(
-      withApiResilience(baseSdk.getBalances, { timeout: 5000, retries: 2 }),
-      'getBalances'
-    ),
-    getTransactions: withErrorHandling(
-      withApiResilience(baseSdk.getTransactions, { timeout: 5000, retries: 2 }),
-      'getTransactions'
-    ),
-    deposit: withErrorHandling(
-      withApiResilience(baseSdk.deposit, { timeout: 10000, retries: 1 }),
-      'deposit'
-    ),
-    withdraw: withErrorHandling(
-      withApiResilience(baseSdk.withdraw, { timeout: 10000, retries: 1 }),
-      'withdraw'
-    ),
-    claimRewards: withErrorHandling(
-      withApiResilience(baseSdk.claimRewards, { timeout: 10000, retries: 1 }),
-      'claimRewards'
-    )
+    getBalances: withErrorHandling(withApiResilience(baseSdk.getBalances), "getBalances"),
+    getTransactions: withErrorHandling(withApiResilience(baseSdk.getTransactions), "getTransactions"),
+    deposit: withErrorHandling(withApiResilience(baseSdk.deposit), "deposit"),
+    withdraw: withErrorHandling(withApiResilience(baseSdk.withdraw), "withdraw"),
+    claimRewards: withErrorHandling(withApiResilience(baseSdk.claimRewards), "claimRewards")
   };
 }
