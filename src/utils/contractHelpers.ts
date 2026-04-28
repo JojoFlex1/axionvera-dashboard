@@ -1,5 +1,7 @@
 import type { StellarNetwork } from "@/utils/networkConfig";
 import { withApiResilience, withErrorHandling, ApiCallOptions } from "./apiResilience";
+﻿import type { StellarNetwork } from "@/utils/networkConfig";
+import { withApiResilience, withErrorHandling, safeApiCall, ApiCallOptions } from "./apiResilience";
 
 export type VaultTxType = "deposit" | "withdraw" | "claim";
 export type VaultTxStatus = "pending" | "success" | "failed";
@@ -18,12 +20,21 @@ export type VaultBalances = {
   rewards: string;
 };
 
+export type TransactionSimulation = {
+  cpuInstructions: number;
+  ramBytes: number;
+  ledgerEntries: number;
+  maxFee: string;
+  estimatedFee: string;
+};
+
 export type AxionveraVaultSdk = {
   getBalances: (args: { walletAddress: string; network: StellarNetwork }, options?: ApiCallOptions) => Promise<VaultBalances>;
   getTransactions: (args: { walletAddress: string; network: StellarNetwork }, options?: ApiCallOptions) => Promise<VaultTx[]>;
   deposit: (args: { walletAddress: string; network: StellarNetwork; amount: string }, options?: ApiCallOptions) => Promise<VaultTx>;
   withdraw: (args: { walletAddress: string; network: StellarNetwork; amount: string }, options?: ApiCallOptions) => Promise<VaultTx>;
   claimRewards: (args: { walletAddress: string; network: StellarNetwork }, options?: ApiCallOptions) => Promise<VaultTx>;
+  simulateTransaction: (args: { walletAddress: string; network: StellarNetwork; type: VaultTxType; amount?: string }, options?: ApiCallOptions) => Promise<TransactionSimulation>;
 };
 
 export function shortenAddress(address: string, chars = 6) {
