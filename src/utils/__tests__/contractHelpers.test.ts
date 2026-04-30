@@ -140,6 +140,26 @@ describe("createAxionveraVaultSdk", () => {
 
       const sdk = createAxionveraVaultSdk();
       const result = await sdk.getBalances({ walletAddress: WALLET, network: NETWORK });
+  describe('createAxionveraVaultSdk', () => {
+    let sdk: any;
+
+    beforeAll(() => {
+      // Provide a stable UUID so hash values are deterministic in tests.
+      (global as any).crypto = {
+        randomUUID: () => 'test-uuid'
+      };
+    });
+
+    beforeEach(() => {
+      // Use the real jsdom localStorage (same object contractHelpers uses)
+      // and wipe it clean between tests.
+      localStorage.clear();
+      sdk = createAxionveraVaultSdk();
+    });
+
+    afterAll(() => {
+      localStorage.clear();
+    });
 
       expect(result.balance).toBe("100");
       expect(result.rewards).toBe("10");
@@ -153,6 +173,13 @@ describe("createAxionveraVaultSdk", () => {
       await expect(
         sdk.getBalances({ walletAddress: WALLET, network: NETWORK })
       ).rejects.toThrow("Simulation failed");
+    it('should deposit (mocked)', async () => {
+      const tx = await sdk.deposit({ walletAddress: 'G_DEP', network: 'testnet', amount: '100' });
+      expect(tx.status).toBe('success');
+      expect(tx.amount).toBe('100');
+
+      const balances = await sdk.getBalances({ walletAddress: 'G_DEP', network: 'testnet' });
+      expect(balances.balance).toBe('100');
     });
   });
 
@@ -161,6 +188,18 @@ describe("createAxionveraVaultSdk", () => {
       const sdk = createAxionveraVaultSdk();
       const txs = await sdk.getTransactions({ walletAddress: WALLET, network: NETWORK });
       expect(txs).toEqual([]);
+    it('should withdraw (mocked)', async () => {
+      // Seed initial state via the real localStorage so contractHelpers reads it.
+      localStorage.setItem(
+        'axionvera:vault:testnet:G_WIT',
+        JSON.stringify({ balance: '100', rewards: '0', txs: [] })
+      );
+
+      const tx = await sdk.withdraw({ walletAddress: 'G_WIT', network: 'testnet', amount: '40' });
+      expect(tx.status).toBe('success');
+
+      const balances = await sdk.getBalances({ walletAddress: 'G_WIT', network: 'testnet' });
+      expect(balances.balance).toBe('60');
     });
   });
 
@@ -172,6 +211,18 @@ describe("createAxionveraVaultSdk", () => {
         sdk.deposit({ walletAddress: WALLET, network: NETWORK, amount: "50" })
       ).rejects.toThrow(/No compatible wallet/);
       expect(mockPrepareTransaction).toHaveBeenCalledTimes(1);
+    it('should claim rewards (mocked)', async () => {
+      localStorage.setItem(
+        'axionvera:vault:testnet:G_CLA',
+        JSON.stringify({ balance: '100', rewards: '10', txs: [] })
+      );
+
+      const tx = await sdk.claimRewards({ walletAddress: 'G_CLA', network: 'testnet' });
+      expect(tx.status).toBe('success');
+
+      const balances = await sdk.getBalances({ walletAddress: 'G_CLA', network: 'testnet' });
+      expect(balances.balance).toBe('1010'); // 1000 deposit + 10 rewards
+      expect(balances.rewards).toBe('0');
     });
   });
 
@@ -199,6 +250,11 @@ describe("createAxionveraVaultSdk", () => {
 
       expect(mockSimulateTransaction).toHaveBeenCalledTimes(2);
       expect(mockPrepareTransaction).toHaveBeenCalledTimes(1);
+
+    it('should handle malformed storage gracefully', async () => {
+      localStorage.setItem('axionvera:vault:testnet:G_MAL', 'invalid-json');
+      const balances = await sdk.getBalances({ walletAddress: 'G_MAL', network: 'testnet' });
+      expect(balances.balance).toBe('0');
     });
   });
 });
