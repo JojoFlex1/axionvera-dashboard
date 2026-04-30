@@ -16,18 +16,18 @@ type TransactionHistoryProps = {
 type TypeFilter = "all" | VaultTxType;
 type StatusFilter = "all" | VaultTxStatus;
 
-const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
+const TYPE_OPTIONS = [
   { value: "all", label: "All Types" },
   { value: "deposit", label: "Deposit" },
   { value: "withdraw", label: "Withdraw" },
-  { value: "claim", label: "Claim" }
+  { value: "claim", label: "Claim" },
 ];
 
-const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
   { value: "success", label: "Success" },
   { value: "pending", label: "Pending" },
-  { value: "failed", label: "Failed" }
+  { value: "failed", label: "Failed" },
 ];
 
 // Mock data for testing CSV export
@@ -102,11 +102,7 @@ const MOCK_TRANSACTIONS: VaultTx[] = [
     amount: "3000.00",
     status: "pending",
     createdAt: new Date(Date.now() - 691200000).toISOString(), // 8 days ago
-<<<<<<< HEAD
     hash: "PALLC3SYJYD5T5Z3STYN3ZK3BXP5GTFBV3XZYOYF2U2E3F2K5N2AJE"
-=======
-    hash: null
->>>>>>> 35916c42a7d70f822e3e09c7e1706c6850f48c86
   },
   {
     id: "mock_tx_010",
@@ -121,10 +117,15 @@ const MOCK_TRANSACTIONS: VaultTx[] = [
 function statusStyles(status: VaultTx["status"]) {
   if (status === "success") return "border-emerald-900/50 bg-emerald-950/30 text-emerald-200";
   if (status === "failed") return "border-rose-900/50 bg-rose-950/30 text-rose-200";
+function statusStyles(status: VaultTxStatus) {
+  if (status === "success")
+    return "border-emerald-900/50 bg-emerald-950/30 text-emerald-200";
+  if (status === "failed")
+    return "border-rose-900/50 bg-rose-950/30 text-rose-200";
   return "border-border-primary bg-background-secondary/30 text-text-primary";
 }
 
-function typeLabel(type: VaultTx["type"]) {
+function typeLabel(type: VaultTxType) {
   if (type === "deposit") return "Deposit";
   if (type === "withdraw") return "Withdraw";
   return "Claim";
@@ -139,8 +140,8 @@ export default function TransactionHistory({
   isLoading: externalIsLoading,
   transactions: externalTransactions,
   onClaimRewards,
-  isClaiming
-}: TransactionHistoryProps) {
+  isClaiming,
+}: Props) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [isExporting, setIsExporting] = useState(false);
@@ -161,7 +162,8 @@ export default function TransactionHistory({
     return externalIsLoading;
   }, [useMockData, externalIsLoading]);
 
-  const filteredTransactions = useMemo(() => {
+  // FILTER
+  const filtered = useMemo(() => {
     return transactions.filter((tx) => {
       if (typeFilter !== "all" && tx.type !== typeFilter) return false;
       if (statusFilter !== "all" && tx.status !== statusFilter) return false;
@@ -178,6 +180,14 @@ export default function TransactionHistory({
       console.warn("No transactions to export");
       return;
     }
+  useEffect(() => {
+    setCurrentPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
+
+  const currentItems = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return sorted.slice(start, start + PAGE_SIZE);
+  }, [sorted, currentPage]);
 
     setIsExporting(true);
     
@@ -207,7 +217,8 @@ export default function TransactionHistory({
 
   return (
     <section className="rounded-2xl border border-border-primary bg-background-primary/30 p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {/* HEADER */}
+      <div className="flex justify-between mb-4">
         <div>
           <div className="text-sm font-semibold text-text-primary">Transaction history</div>
           <div className="mt-1 text-xs text-text-muted">
@@ -310,9 +321,7 @@ export default function TransactionHistory({
             className={selectClassName}
           >
             {TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
         </label>
@@ -324,9 +333,7 @@ export default function TransactionHistory({
             className={selectClassName}
           >
             {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
         </label>
@@ -339,9 +346,30 @@ export default function TransactionHistory({
             }}
             className="text-xs text-axion-400 transition hover:text-axion-300"
           >
-            Clear filters
+            {isClaiming ? "Claiming..." : "Claim Rewards"}
           </button>
-        ) : null}
+        </div>
+      {/* FILTERS */}
+      <div className="flex gap-3 mb-4">
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+          className="rounded bg-background-secondary px-2 py-1"
+        >
+          {TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          className="rounded bg-background-secondary px-2 py-1"
+        >
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="mt-5 overflow-hidden rounded-2xl border border-border-primary">
@@ -359,7 +387,7 @@ export default function TransactionHistory({
               {hasActiveFilter ? "No transactions match the selected filters." : "No transactions yet."}
             </div>
           ) : (
-            filteredTransactions.map((tx) => (
+            sortedTransactions.map((tx) => (
               <div
                 key={tx.id}
                 className="grid grid-cols-[1.2fr_1fr_1fr_0.9fr] items-center gap-3 px-4 py-3 text-sm"
