@@ -5,12 +5,15 @@ export interface FormInputProps extends React.InputHTMLAttributes<HTMLInputEleme
   label?: string | React.ReactNode;
   error?: FieldError;
   touched?: boolean;
+  error?: FieldError | { message: string };
   helperText?: React.ReactNode;
+  isTouched?: boolean;
   children?: React.ReactNode;
 }
 
 export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
   ({ label, error, touched, helperText, children, className = '', id, ...props }, ref) => {
+  ({ label, error, helperText, isTouched, children, className = '', ...props }, ref) => {
     const hasError = !!error;
 
     const inputId = id || `input-${typeof label === 'string' ? label.toLowerCase().replace(/\s+/g, '-') : 'field'}`;
@@ -58,6 +61,30 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
           {showError ? (
             <p id={errorId} className="text-xs text-red-500 dark:text-red-400 font-medium">{error!.message}</p>
           ) : helperText && !touched ? (
+        
+        <input
+          ref={ref}
+          id={inputId}
+          aria-invalid={hasError ? "true" : "false"}
+          aria-describedby={`${hasError ? errorId : ''} ${helperText ? helperId : ''}`.trim() || undefined}
+          className={`
+            w-full rounded-xl border px-4 py-3 text-sm text-text-primary 
+            transition-all duration-200
+            placeholder:text-text-muted
+            focus:outline-none focus:ring-2 focus:ring-axion-500/50 focus:border-axion-500
+            ${hasError 
+              ? 'border-red-500/70 bg-red-500/5 focus:border-red-500 focus:ring-red-500/20' 
+              : 'border-border-primary bg-background-secondary/30'
+            }
+            ${className}
+          `}
+          {...props}
+        />
+        
+        <div className="min-h-[1.25rem]">
+          {hasError ? (
+            <p id={errorId} className="text-xs text-red-500 dark:text-red-400 font-medium">{errorMessage}</p>
+          ) : helperText && !isTouched ? (
             <p id={helperId} className="text-xs text-text-muted">{helperText}</p>
           ) : null}
         </div>
