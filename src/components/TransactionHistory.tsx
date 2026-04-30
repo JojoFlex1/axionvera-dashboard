@@ -9,6 +9,7 @@ import {
 import { NETWORK } from "@/utils/networkConfig";
 import CopyButton from "./CopyButton";
 import { TransactionSkeleton } from "./Skeletons";
+import ConfirmTransactionModal from '@/components/modals/ConfirmTransactionModal';
 
 const PAGE_SIZE = 10;
 
@@ -90,6 +91,14 @@ export default function TransactionHistory({
   // PAGINATION
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
 
+  const toggleSort = (nextKey: SortKey) => {
+    if (sortKey === nextKey) {
+      setSortDirection((previousDirection) =>
+        previousDirection === "asc" ? "desc" : "asc"
+        previousDirection === "asc" ? "desc" : "asc",
+      );
+      return;
+    }
   useEffect(() => {
     setCurrentPage((p) => Math.min(p, totalPages));
   }, [totalPages]);
@@ -125,6 +134,67 @@ export default function TransactionHistory({
         </button>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <label htmlFor="type-filter" className="text-xs text-text-muted">
+            Type
+          </label>
+          <select
+            id="type-filter"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+            className={selectClassName}
+          >
+            {TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label htmlFor="status-filter" className="text-xs text-text-muted">
+            Status
+          </label>
+          <select
+            id="status-filter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            className={selectClassName}
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-2xl border border-border-primary">
+        <div className="divide-y divide-border-primary">
+          {isLoading ? (
+            <TransactionSkeleton />
+          ) : filteredTransactions.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-text-secondary">
+              No transactions yet.
+            </div>
+          ) : (
+            filteredTransactions.map((tx) => (
+              <div key={tx.id} className="p-4 text-sm border-b">
+                <div>{typeLabel(tx.type)}</div>
+                <div>{formatAmount(tx.amount)}</div>
+                <div>{new Date(tx.createdAt).toLocaleString()}</div>
+                <div>{tx.status}</div>
+
+        {hasActiveFilter ? (
+          <button
+            type="button"
+            onClick={onClaimRewards}
+            disabled={!isConnected || isClaiming}
+            aria-label={isClaiming ? "Claiming rewards" : "Claim your earned rewards"}
+            className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isClaiming ? "Claiming..." : "Claim Rewards"}
+          </button>
+        </div>
       {/* FILTERS */}
       <div className="flex gap-3 mb-4">
         <select
@@ -167,6 +237,52 @@ export default function TransactionHistory({
               <div className="text-xs">
                 {new Date(tx.createdAt).toLocaleString()}
               </div>
+            </div>
+          ) : (
+            sortedTransactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="grid grid-cols-[1.2fr_1fr_1fr_0.9fr] items-center gap-3 px-4 py-3 text-sm"
+                role="row"
+              >
+                <div className="text-text-primary" role="cell">
+                  {typeLabel(tx.type)}
+                </div>
+                <div className="text-text-primary" role="cell">
+                  {formatAmount(tx.amount)}
+                </div>
+                <div className="text-text-muted" role="cell">
+                  {new Date(tx.createdAt).toLocaleString()}
+                </div>
+                <div role="cell">
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${statusStyles(tx.status)}`}
+                  >
+                    {tx.status}
+                  </span>
+                  {tx.hash ? (
+                    <div className="mt-1 flex items-center gap-1 text-xs text-text-muted">
+                      <span>Hash: {shortenAddress(tx.hash, 8)}</span>
+                      <CopyButton text={tx.hash} label="Copy hash" size="sm" />
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-text-muted">Amount</span>
+                  <span className="text-text-primary">{formatAmount(tx.amount)}</span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-text-muted">Date</span>
+                  <span className="text-text-muted">{new Date(tx.createdAt).toLocaleString()}</span>
+                </div>
+
+                {tx.hash && (
+                  <div className="text-xs text-text-muted">
+                    Hash: {shortenAddress(tx.hash, 8)}
+                  </div>
+                )}
+                {tx.hash ? <div className="text-xs text-text-muted">Hash: {shortenAddress(tx.hash, 8)}</div> : null}
               <div>
                 <span className={`px-2 py-1 rounded ${statusStyles(tx.status)}`}>
                   {tx.status}

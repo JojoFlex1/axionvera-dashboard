@@ -5,6 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { FormInput } from './FormInput';
 import { createWithdrawSchema, WithdrawFormData } from '@/utils/validation';
 import { notify } from '@/utils/notifications';
+import { formatAmount, shortenAddress } from '@/utils/contractHelpers';
+import { useState } from 'react';
+import ConfirmTransactionModal from '@/components/modals/ConfirmTransactionModal';
 import { formatAmount, shortenAddress, type TransactionSimulation } from '@/utils/contractHelpers';
 import { ConfirmTransactionModal } from './ConfirmTransactionModal';
 import { FormSkeleton } from './Skeletons';
@@ -33,6 +36,10 @@ export default function WithdrawForm({
   defaultAmount = ""
   onSimulate
 }: WithdrawFormProps) {
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pendingAmount, setPendingAmount] = useState<string | null>(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [simulationData, setSimulationData] = useState<TransactionSimulation | null>(null);
   const [pendingAmount, setPendingAmount] = useState<string>('');
@@ -69,6 +76,16 @@ export default function WithdrawForm({
   }
 
   const onSubmit = async (data: WithdrawFormData) => {
+    setPendingAmount(data.amount.toString());
+    setIsModalOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    if (!pendingAmount) return;
+
+    try {
+      await onWithdraw(pendingAmount);
+      notify.success("Withdrawal Successful", `You have withdrawn ${pendingAmount} tokens.`);
     const amountStr = data.amount.toString();
     if (onSimulate) {
       setPendingAmount(amountStr);
@@ -98,10 +115,19 @@ export default function WithdrawForm({
       setIsModalOpen(false);
     } catch (error) {
       console.error('Withdrawal error:', error);
+    } finally {
+      setIsModalOpen(false);
+      setPendingAmount(null);
       setIsModalOpen(false);
     }
   };
 
+  const handleCancel = () => {
+    setIsModalOpen(false);
+    setPendingAmount(null);
+  };
+
+  const shouldDisableSubmit = !isConnected || !isValid || !isDirty || isSubmitting;
   const handleConfirm = () => {
     if (pendingAmount) {
       executeWithdraw(pendingAmount);
@@ -147,6 +173,19 @@ export default function WithdrawForm({
             helperText={`Enter amount between 0.0001 and ${formatAmount(balance)}`}
           />
 
+        {status !== 'idle' ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className={`rounded-xl border px-4 py-3 text-sm ${status === 'success'
+              ? 'border-emerald-900/50 bg-emerald-950/30 text-emerald-200'
+              : status === 'error'
+                ? 'border-rose-900/50 bg-rose-950/30 text-rose-200'
+                : 'border-border-primary bg-background-secondary/30 text-text-primary'
+              }`}
+          >
+            <div className="font-medium">
+              {status === 'pending' ? 'Withdrawal transaction pending' : status === 'success' ? 'Withdrawal completed' : 'Withdrawal failed'}
           {status !== 'idle' && status !== 'success' ? (
             <div
               role="status"
@@ -207,6 +246,12 @@ export default function WithdrawForm({
 
       <ConfirmTransactionModal
         isOpen={isModalOpen}
+        onClose={handleCancel}
+        onConfirm={handleConfirm}
+        actionType="Withdraw"
+        assetAmount={pendingAmount || "0"}
+        networkFee="~0.00001 XLM" // replace later with real fee
+        contractId="CDLZ...XYZ"   // replace with actual contract ID
         onClose={handleCloseModal}
         onConfirm={handleConfirm}
         action="withdraw"

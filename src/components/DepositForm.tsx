@@ -7,6 +7,10 @@ import { createDepositSchema, DepositFormData } from '@/utils/validation';
 import { notify } from '@/utils/notifications';
 import { shortenAddress, type TransactionSimulation } from '@/utils/contractHelpers';
 import { ConfirmTransactionModal } from './ConfirmTransactionModal';
+import { AppTooltip } from './AppTooltip';
+import { GLOSSARY } from '@/utils/glossary';
+import { useState } from "react";
+import ConfirmTransactionModal from '@/components/modals/ConfirmTransactionModal';
 import { FormSkeleton } from './Skeletons';
 import { formatAmount } from '@/utils/contractHelpers';
 
@@ -35,6 +39,10 @@ export default function DepositForm({
   walletBalance,
   onSimulate,
 }: DepositFormProps) {
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pendingAmount, setPendingAmount] = useState<string | null>(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [simulationData, setSimulationData] = useState<TransactionSimulation | null>(null);
   const [pendingAmount, setPendingAmount] = useState<string>('');
@@ -55,6 +63,21 @@ export default function DepositForm({
     },
   });
 
+  const handleConfirm = async () => {
+    if (!pendingAmount) return;
+
+    try {
+      await onDeposit(pendingAmount);
+      notify.success("Deposit Successful", `You have deposited ${pendingAmount} tokens.`);
+      reset();
+    } catch (error) {
+      console.error('Deposit error:', error);
+    } finally {
+      setIsModalOpen(false);
+      setPendingAmount(null);
+    }
+  };
+  // Show success modal when status changes to success and we have a hash
   // Set default amount from props when component mounts and wallet is connected
   useEffect(() => {
     if (defaultAmount && isConnected) {
@@ -87,6 +110,11 @@ export default function DepositForm({
 
   const executeDeposit = async (amount: string) => {
     try {
+      const onSubmit = async (data: DepositFormData) => {
+        setPendingAmount(data.amount.toString());
+        setIsModalOpen(true);
+      };
+      notify.success("Deposit Successful", `You have deposited ${data.amount} tokens.`);
       await onDeposit(amount);
       notify.success("Deposit Successful", `You have deposited ${amount} tokens.`);
       reset();
@@ -103,6 +131,12 @@ export default function DepositForm({
     }
   };
 
+  const handleCancel = () => {
+    setIsModalOpen(false);
+    setPendingAmount(null);
+  };
+
+  const shouldDisableSubmit = !isConnected || !isValid || !isDirty || isSubmitting;
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSimulationData(null);
@@ -135,6 +169,19 @@ export default function DepositForm({
             helperText={`Enter amount between 0.0001 and ${walletBalance ? formatAmount(walletBalance.toString()) : '10,000'}`}
           />
 
+        {status !== 'idle' ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className={`rounded-xl border px-4 py-3 text-sm ${status === 'success'
+              ? 'border-emerald-900/50 bg-emerald-950/30 text-emerald-200'
+              : status === 'error'
+                ? 'border-rose-900/50 bg-rose-950/30 text-rose-200'
+                : 'border-border-primary bg-background-secondary/30 text-text-primary'
+              }`}
+          >
+            <div className="font-medium">
+              {status === 'pending' ? 'Deposit transaction pending' : status === 'success' ? 'Deposit completed' : 'Deposit failed'}
           {status !== 'idle' && status !== 'success' ? (
             <div
               role="status"
@@ -195,6 +242,12 @@ export default function DepositForm({
 
       <ConfirmTransactionModal
         isOpen={isModalOpen}
+        onClose={handleCancel}
+        onConfirm={handleConfirm}
+        actionType="Deposit"
+        assetAmount={pendingAmount || "0"}
+        networkFee="~0.00001 XLM" // replace with real estimate later
+        contractId="CDLZ...XYZ" // replace with actual contract
         onClose={handleCloseModal}
         onConfirm={handleConfirm}
         action="deposit"

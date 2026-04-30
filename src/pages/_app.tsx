@@ -12,6 +12,7 @@ import { inter, jetbrainsMono } from "@/lib/fonts";
 
 import { useEffect } from "react";
 import { initTelemetry } from "@/utils/telemetry";
+import { ThemeProvider } from '@/contexts/ThemeContext';
 
 export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => {
